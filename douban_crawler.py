@@ -143,7 +143,7 @@ def crawl():
             try:
                 while rate_limit(40, 1, 'M'):
                     # 请求过于频繁,超过每分钟40次了
-                    logger.info('请求过于频繁,超过每分钟40次了')
+                    logger.info('[抓取]请求过于频繁,超过每分钟40次了')
                     time.sleep(0.1)
                 logger.info('[抓取] 开始抓取网址:%s', url)
                 res = requests.get(url=url, headers=HEADERS)
