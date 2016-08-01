@@ -196,13 +196,12 @@ def duplicate_key_id(key_id_list):
     task_id_list = []
     if key_id_list is None or len(key_id_list) == 0:
         return task_id_list
-    if add_lock.acquire():
+    with add_lock:
         for key_id in key_id_list:
             if key_id not in visited_key_ids:
                 visited_key_ids.add(key_id)
                 logger.info('[抓取页面] 目前已经抓取到[%s] 个种子了', len(visited_key_ids))
                 task_id_list.append(key_id)
-        add_lock.release()
     return task_id_list
 
 
