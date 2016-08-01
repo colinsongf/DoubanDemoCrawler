@@ -162,7 +162,7 @@ def crawl():
                                     effective_task_ids.__len__(),
                                     ','.join(effective_task_ids))
                         for effective_task_id in effective_task_ids:
-                            # 生成任务实体,同事记录爬取深度及源地址
+                            # 生成任务实体,同时记录爬取深度及源地址
                             tmp_seed_task = TaskSeed(None, None, None, effective_task_id,
                                                      seed_task.crawl_depth + 1,
                                                      url)
