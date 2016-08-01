@@ -117,7 +117,6 @@ class CrawlTask(object):
 def crawl():
     while True:
         crawl_task_str = fetch_task()
-        # logger.info(crawl_task_str)
         if crawl_task_str is None:
             logger.info('[抓取页面] 暂时没有抓取任务')
             time.sleep(0.1)  # sleep 100毫秒
