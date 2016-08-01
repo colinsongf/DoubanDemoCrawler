@@ -11,12 +11,11 @@ import requests
 import re
 import redis
 import logging
-import time
-import threading
 from Queue import Queue
 from Queue import Full
 import pdb
 import json
+from general import *
 
 # 日志的配置
 logging.basicConfig(level=logging.INFO,
@@ -36,10 +35,6 @@ redis_client = redis.Redis(host='localhost', port=6379)
 visited_key_ids = set()
 # 添加到set的锁,防止竞争
 add_lock = threading.Lock()
-# 频率控制锁
-incr_req_times_lock = threading.RLock()
-# 请求滑动窗
-req_slide_window = []
 
 # 推送到redis 队列, 支持100万
 tmp_queue = Queue(100 * 10000)
@@ -228,39 +223,6 @@ def push_to_queue():
             except (Exception) as e:
                 logger.exception(
                     '[推送任务] 写入redis失败; 任务信息:%s', tmp_crawl_task, e)
-
-
-# 将秒转成毫秒， 并且保留两位小数
-def format_time(time_in_seconds):
-    milliseconds = time_in_seconds * 1000
-    return float('%0.2f' % milliseconds)
-
-
-# 请求频率限制
-def rate_limit(max_req_times, time_value, time_unit):
-    global req_slide_window
-
-    current_time = time.time()  # 当前时间以秒为单位
-    req_slide_window.append(current_time)
-    with incr_req_times_lock:
-        if len(req_slide_window) == 0:
-            return False
-        else:
-            # 以小时为单位
-            if time_unit == 'H':
-                interval = time_value * 3600
-            else:  # 以分钟为单位
-                interval = time_value * 60
-            # 过滤出过去一段时间的list， 判断大小
-            req_in_last_interval = [x for x in req_slide_window if x >= (current_time - interval)]
-            req_slide_window = req_in_last_interval
-            length = len(req_in_last_interval)
-            if length > max_req_times:
-                req_slide_window = req_in_last_interval[length - max_req_times:length]
-                req_slide_window.remove(current_time)  # 超过最大值得请求不能算作
-                return True
-            else:
-                return False
 
 
 # 初始化一个任务种子
