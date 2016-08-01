@@ -127,6 +127,7 @@ def crawl():
             if DEBUG:
                 pdb.set_trace()
             url = crawl_task.get_url()
+            source_url = crawl_task.source_url
             current_crawl_depth = crawl_task.crawl_depth  # 当前的深度
             # 达到最大深度, 不予抓取
             if current_crawl_depth >= MAX_DEPTH:
@@ -137,7 +138,7 @@ def crawl():
                     # 请求过于频繁,超过每分钟40次了
                     logger.info('[抓取页面]请求过于频繁,超过每分钟40次了')
                     time.sleep(0.1)
-                logger.info('[抓取页面] 开始抓取网址:%s', url)
+                logger.info('[抓取页面] 开始抓取网址:%s; 源地址:%s', url, source_url)
                 res = requests.get(url=url, headers=HEADERS)
                 status_code = res.status_code
                 if status_code == 200:
@@ -169,7 +170,7 @@ def crawl():
                                         '[抓取页面] 推任务:%s到临时队列失败, 队列已满; 第%s次尝试;', tmp_crawl_task, retry_times)
                                     time.sleep(0.1)  # sleep 100毫秒, 重试五次
                 else:
-                    logger.warn('[抓取页面] 抓取网址:%s  响应码:[%s] ', url, status_code)
+                    logger.warn('[抓取页面] 抓取网址:%s  响应码:[%s]; 源地址:%s ', url, status_code, source_url)
             except requests.exceptions.RequestException as e:
                 logger.exception('[抓取页面] 抓取网址:%s  失败;', url, e)
 
