@@ -167,13 +167,12 @@ def crawl():
                                                      seed_task.crawl_depth + 1,
                                                      url)
                             retry_times = 0
-                            while True:
-                                if retry_times > 5:
-                                    break
+                            while retry_times <= 5:
                                 try:
                                     tmp_queue.put(tmp_seed_task, block=True)
                                     break
                                 except Full:
+                                    retry_times += 1
                                     logger.error(
                                         '[抓取] 推任务:%s到临时队列失败, 队列已满; 第%s次尝试;', tmp_seed_task, retry_times)
                                     time.sleep(0.1)  # sleep 100毫秒, 重试五次
