@@ -40,7 +40,8 @@ add_lock = threading.Lock()
 tmp_queue = Queue(100 * 10000)
 
 # 豆瓣正则扣取配置
-key_id_pattern = re.compile('[\/|"|\s](?P<key_id>\d{8})[\/|"|\s]')
+# key_id_pattern = re.compile('[\/|"|\s](?P<key_id>\d{8})[\/|"|\s]')
+key_id_pattern = re.compile('subject\/(?P<key_id>\d{8})\/')
 
 # 最大爬取深度
 MAX_DEPTH = 10
