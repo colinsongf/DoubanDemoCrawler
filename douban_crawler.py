@@ -61,7 +61,7 @@ class MovieItem(object):
         self.arg = arg
 
 
-class TaskSeed(object):
+class CrawlTask(object):
     """爬虫任务描述"""
 
     DOUBAN_ID = 1  # 由于暂时只考虑豆瓣抓取, 所以固定了部分抓取参数值
@@ -69,7 +69,7 @@ class TaskSeed(object):
     DOUBAN_SEED_FORMAT = 'https://movie.douban.com/subject/%s'  # 豆瓣电影链接源格式
 
     def __init__(self, site_id, site_host, site_seed_format, key_id, crawl_depth, source_url):
-        super(TaskSeed, self).__init__()
+        super(CrawlTask, self).__init__()
         self.site_id = site_id if site_id else self.DOUBAN_ID
         self.site_host = site_host if site_host else self.DOUBAN_HOST
         self.site_seed_format = site_seed_format if site_seed_format \
@@ -105,11 +105,11 @@ class TaskSeed(object):
     @staticmethod
     def json_decoder(obj):
         # 直接反序列化
-        # if '__type__' in obj and obj['__type__'] == 'TaskSeed':
-        seed = TaskSeed(None, None, None, str(obj['key_id']),
-                        int(obj['crawl_depth']), str(obj['source_url']))
-        seed.crawl_time = obj['_crawl_time']
-        return seed
+        # if '__type__' in obj and obj['__type__'] == 'CrawlTask':
+        task = CrawlTask(None, None, None, str(obj['key_id']),
+                         int(obj['crawl_depth']), str(obj['source_url']))
+        task.crawl_time = obj['_crawl_time']
+        return task
 
     # 怎么样可以判断为同一个任务; 对应网站Id一样,且 种子Id一样就可以认为是同一个任务
     def __eq__(self, other):
@@ -121,31 +121,29 @@ class TaskSeed(object):
 # 抓取进程， 主要负责访问种子链接，生成种子内容
 def crawl():
     while True:
-        seed_task_str = fetch_task()
-        # logger.info(seed_task_str)
-        if seed_task_str is None:
-            logger.info('[抓取] 暂时没有抓取任务.')
+        crawl_task_str = fetch_task()
+        # logger.info(crawl_task_str)
+        if crawl_task_str is None:
+            logger.info('[抓取页面] 暂时没有抓取任务')
             time.sleep(0.1)  # sleep 100毫秒
             continue
         else:
-            # seed_task = json.dump(seed_task_str)
-            seed_task = json.loads(
-                seed_task_str, object_hook=TaskSeed.json_decoder)
+            crawl_task = json.loads(
+                crawl_task_str, object_hook=CrawlTask.json_decoder)
             if DEBUG:
                 pdb.set_trace()
-            # logger.info(seed_task)
-            url = seed_task.get_url()
-            current_crawl_depth = seed_task.crawl_depth  # 当前的深度
+            url = crawl_task.get_url()
+            current_crawl_depth = crawl_task.crawl_depth  # 当前的深度
             # 达到最大深度, 不予抓取
             if current_crawl_depth >= MAX_DEPTH:
-                logger.info('[抓取] 任务:%s 达到最大深度; 放弃抓取', url)
+                logger.info('[抓取页面] 任务:%s 达到最大深度; 放弃抓取', url)
                 continue
             try:
                 while rate_limit(40, 1, 'M'):
                     # 请求过于频繁,超过每分钟40次了
-                    logger.info('[抓取]请求过于频繁,超过每分钟40次了')
+                    logger.info('[抓取页面]请求过于频繁,超过每分钟40次了')
                     time.sleep(0.1)
-                logger.info('[抓取] 开始抓取网址:%s', url)
+                logger.info('[抓取页面] 开始抓取网址:%s', url)
                 res = requests.get(url=url, headers=HEADERS)
                 status_code = res.status_code
                 if status_code == 200:
@@ -154,47 +152,47 @@ def crawl():
                     if key_id_match:
                         key_id_list = map(lambda x: x.group('key_id'),
                                           [key_id_single_match for key_id_single_match in key_id_match])
-                        logger.info('[抓取] 在页面[%s] 抓取到种子数:%s 个; ID列表为:%s', url, len(
+                        logger.info('[抓取页面] 在页面[%s] 抓取到种子数:%s 个; ID列表为:%s', url, len(
                             key_id_list), ','.join(key_id_list))
                         effective_task_ids = duplicate_key_id(
                             key_id_list=key_id_list)
-                        logger.info('[抓取] 在页面:[%s] 抓取到[有效]任务种子数:%s 个; 任务ID为:%s', url,
+                        logger.info('[抓取页面] 在页面:[%s] 抓取到[有效]任务种子数:%s 个; 任务ID为:%s', url,
                                     effective_task_ids.__len__(),
                                     ','.join(effective_task_ids))
                         for effective_task_id in effective_task_ids:
                             # 生成任务实体,同时记录爬取深度及源地址
-                            tmp_seed_task = TaskSeed(None, None, None, effective_task_id,
-                                                     seed_task.crawl_depth + 1,
-                                                     url)
+                            tmp_crawl_task = CrawlTask(None, None, None, effective_task_id,
+                                                       crawl_task.crawl_depth + 1,
+                                                       url)
                             retry_times = 0
                             while retry_times <= 5:
                                 try:
-                                    tmp_queue.put(tmp_seed_task, block=True)
+                                    tmp_queue.put(tmp_crawl_task, block=True)
                                     break
                                 except Full:
                                     retry_times += 1
                                     logger.error(
-                                        '[抓取] 推任务:%s到临时队列失败, 队列已满; 第%s次尝试;', tmp_seed_task, retry_times)
+                                        '[抓取页面] 推任务:%s到临时队列失败, 队列已满; 第%s次尝试;', tmp_crawl_task, retry_times)
                                     time.sleep(0.1)  # sleep 100毫秒, 重试五次
                 else:
-                    logger.warn('[抓取] 抓取网址:[%s] 响应码:[%s] ', url, status_code)
+                    logger.warn('[抓取页面] 抓取网址:%s  响应码:[%s] ', url, status_code)
             except requests.exceptions.RequestException as e:
-                logger.exception('[抓取] 抓取网址:[%s] 失败;', url, e)
+                logger.exception('[抓取页面] 抓取网址:%s  失败;', url, e)
 
 
 # 获取抓取任务(先只考虑每次只pop一个任务)
 def fetch_task():
     try:
         start = time.time()
-        seed_task = redis_client.rpop('crawler:douban:tasks')
+        crawl_task = redis_client.rpop('crawler:douban:tasks')
         # if DEBUG:
         #     pdb.set_trace()
         end = time.time()
-        logger.info('[获取抓取任务]  获取抓取任务耗时%s毫秒',
+        logger.info('[获取任务] 获取抓取任务耗时%s毫秒',
                     format_time(end - start))  # 埋点用作以后的优化
-        return seed_task
+        return crawl_task
     except (redis.ConnectionError, redis.TimeoutError) as e:
-        logger.exception('[获取抓取任务] 失败;', e)
+        logger.exception('[获取任务] 失败;', e)
     return None
 
 
@@ -208,7 +206,7 @@ def duplicate_key_id(key_id_list):
         for key_id in key_id_list:
             if key_id not in visited_key_ids:
                 visited_key_ids.add(key_id)
-                logger.info('[抓取] 目前已经抓取到[%s] 个种子了', len(visited_key_ids))
+                logger.info('[抓取页面] 目前已经抓取到[%s] 个种子了', len(visited_key_ids))
                 task_id_list.append(key_id)
         add_lock.release()
     return task_id_list
@@ -219,24 +217,17 @@ def push_to_queue():
     while True:
         # 木有推送任务, sleep 1000ms
         if tmp_queue.empty():
-            logger.info('[seed写入redis] 暂时没有要推的任务......')
+            logger.info('[推送任务] 暂时没有推送任务')
             time.sleep(1)
         else:
-            tmp_task = None
+            tmp_crawl_task = None
             try:
-                tmp_task = tmp_queue.get()
-                redis_client.lpush('crawler:douban:tasks', tmp_task.to_json())
-                logger.info('[seed写入redis] 推到redis成功; 任务信息:%s', tmp_task)
+                tmp_crawl_task = tmp_queue.get()
+                redis_client.lpush('crawler:douban:tasks', tmp_crawl_task.to_json())
+                logger.info('[推送任务] 推到redis成功; 任务信息:%s', tmp_crawl_task)
             except (Exception) as e:
                 logger.exception(
-                    '[seed写入redis] 写入redis失败; 任务信息:%s', tmp_task, e)
-
-
-# 初始化一个任务种子
-def init_task_seed():
-    seed = TaskSeed(None, None, None, '25850122', 0, '')
-    visited_key_ids.add('25850122')  # 第一个页面访问过了,也不用访问
-    redis_client.lpush('crawler:douban:tasks', seed.to_json())
+                    '[推送任务] 写入redis失败; 任务信息:%s', tmp_crawl_task, e)
 
 
 # 将秒转成毫秒， 并且保留两位小数
@@ -272,33 +263,31 @@ def rate_limit(max_req_times, time_value, time_unit):
                 return False
 
 
-# 测试请求滑动窗算法
-def test_rate_limit():
-    # logger.info(rate_limit(1, 1, 'M'))
-    for i in range(100):
-        req_slide_window.append(time.time().__add__(i))
-    logger.info(req_slide_window)
-    logger.info(rate_limit(3, 1, 'M'))
-    logger.info(req_slide_window)
-    logger.info(rate_limit(5, 1, 'M'))
-    logger.info(req_slide_window)
+# 初始化一个任务种子
+def init_crawl_task():
+    crawl_task = CrawlTask(None, None, None, '25850122', 0, '')
+    visited_key_ids.add('25850122')  # 第一个页面访问过了,也不用访问
+    redis_client.lpush('crawler:douban:tasks', crawl_task.to_json())
 
 
-if __name__ == '__main__':
-    # test_rate_limit()
-    logger.info('[豆瓣]爬取start')
-    # redis_client.delete('crawler:douban:tasks')
-    init_task_seed()
+# 初始化所有的worker线程
+def init_work_threads(crawl_thread_num, push_thread_num):
     all_threads = []
-    # 三个抓取线程
-    for i in range(1):
+    # 初始化抓取线程
+    for i in range(crawl_thread_num):
         t = threading.Thread(target=crawl)  # 参数以元组形式传递给线程
         all_threads.append(t)
-    # 一个推送线程
-    push_thread = threading.Thread(target=push_to_queue)
-    all_threads.append(push_thread)
+    # 初始化推送线程
+    for i in range(push_thread_num):
+        push_thread = threading.Thread(target=push_to_queue)
+        all_threads.append(push_thread)
     for t in all_threads:
         t.start()
     for t in all_threads:
         t.join()
-    logger.info('[豆瓣]爬取done;')
+
+
+if __name__ == '__main__':
+    logger.info('[豆瓣]爬取start')
+    init_crawl_task()
+    init_work_threads(1, 1)
