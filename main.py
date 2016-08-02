@@ -1,12 +1,5 @@
 # coding:utf-8
 
-"""
-redis (2.10.5)
-requests (2.9.1)
-python (2.7.10)
-
-"""
-
 import json
 import pdb
 import re
