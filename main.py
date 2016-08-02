@@ -12,9 +12,7 @@ import pdb
 import re
 from Queue import Full
 from Queue import Queue
-
 import requests
-
 from CrawlTaskItem import CrawlTaskItem
 from anti_duplicate import *
 from configs.logger_config import *

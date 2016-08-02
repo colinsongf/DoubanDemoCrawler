@@ -1,7 +1,6 @@
 # coding:utf-8
 
 import threading
-
 from configs.logger_config import *
 
 # 日志
