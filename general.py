@@ -40,3 +40,21 @@ def rate_limit(max_req_times, time_value, time_unit):
 def format_time(time_in_seconds):
     milliseconds = time_in_seconds * 1000
     return float('%0.2f' % milliseconds)
+
+
+# 无返回的线程池的装饰器
+def thread_pool(thread_num):
+    def _outer_func(target_func):
+        def __inner_func(*args, **kwargs):
+            threads = []
+            for i in range(thread_num):
+                thread = threading.Thread(target=target_func, args=args, kwargs=kwargs)
+                threads.append(thread)
+            for thread in threads:
+                thread.start()
+                # for thread in threads:
+                #     thread.join()
+
+        return __inner_func
+
+    return _outer_func
